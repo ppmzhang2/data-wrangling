@@ -1,0 +1,9 @@
+.DS_Store
+
+# RStudio
+.RData
+.Rhistory
+
+# Rmd
+*.html
+*.pdf

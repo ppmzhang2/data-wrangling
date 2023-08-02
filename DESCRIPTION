@@ -1,0 +1,21 @@
+Package: dataWrangling
+Type: Package
+Title: Data Wrangling with R
+Version: 0.0.1
+Authors@R: person("Meng", "Zhang", email = "stall-breezes.0t@icloud.com",
+                  role = c("aut", "cre"))
+Description: Data Wrangling Labs with R.
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.2.2)
+Imports:
+    import,
+    devtools,
+    tidyverse,
+    rmarkdown,
+    prettydoc,
+    ggplot2
+
+Remotes:
+    github::JoeyBernhardt/singer
