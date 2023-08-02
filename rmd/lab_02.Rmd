@@ -32,7 +32,8 @@ library(singer)
 
 ## Including Plots
 
-We can obtain a quick overview of what dataset are now available via `singer` using the `data()` function.
+We can obtain a quick overview of what dataset are now available via `singer`
+using the `data()` function.
 
 ```{r}
 data(package = "singer")
@@ -48,7 +49,8 @@ data(singer_locations)
 singer_locations %>% nrow()
 ```
 
-We can use `head()`, `tail()` or the beautiful `glimpse()` to peek at the dataset.
+We can use `head()`, `tail()` or the beautiful `glimpse()` to peek at the
+dataset.
 
 ```{r}
 singer_locations %>% head()
@@ -66,7 +68,8 @@ singer_locations %>%
   head() # and just a few rows
 ```
 
-Moreover, `tidyverse` (specifically, `dplyr`) offers you helper functions to select some column, for example:
+Moreover, `tidyverse` (specifically, `dplyr`) offers you helper functions to
+select some column, for example:
 
 ```{r}
 singer_locations %>%

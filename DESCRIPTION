@@ -9,13 +9,14 @@ Encoding: UTF-8
 LazyData: true
 Depends: 
     R (>= 4.2.2)
+Remotes:
+    github::JoeyBernhardt/singer
 Imports:
     import,
     devtools,
+    skimr,
+    singer,
     tidyverse,
     rmarkdown,
     prettydoc,
     ggplot2
-
-Remotes:
-    github::JoeyBernhardt/singer
