@@ -19,4 +19,7 @@ Imports:
     tidyverse,
     rmarkdown,
     prettydoc,
+    visdat,
+    tidyxl,
+    writexl,
     ggplot2
