@@ -1,0 +1,466 @@
+---
+title: "Lab 5. Class Theory"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    theme: cayman
+    highlight: github
+    df_print: paged
+date: "2023-08-13"
+editor_options:
+  markdown:
+    wrap: 79
+---
+
+```{r knitr, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+import::from(magrittr, "%>%", "%$%", .into = "operators")
+```
+
+So far we have been free-riding R with a light heart.
+It's now time to tidy up our knowledge and cover our basis.
+
+In particular, in this lab we will talk a little bit more about the kind of
+objects you deal with in R.
+
+## Atomic Vectors
+
+```{r}
+library(tidyverse)
+```
+
+The atoms of R are _vectors_.
+Even simple values as `12` are actually atomic vectors: in particular, vectors
+of length 1.  
+Atomic vectors are vectors containing logical, integer, double precision, or
+character data. We refer to them simply as vectors.
+
+```{r}
+my_value <- 12
+my_value
+```
+
+```{r}
+is.vector(my_value)
+is.vector(12)
+length(my_value)
+length(12)
+```
+
+We build a vector in many ways, but the most common is using the concatenation
+function `c()`.
+
+```{r}
+vect <- c("my", "cool", "vect")
+vect
+```
+
+To get something from within a vector, be it of length 1 or more, we use the
+square brackets \[ \] and call stuff by their position, starting from 1
+(not from 0 as in other languages, remember!).
+The indexes can be either single values or other vectors:
+
+```{r}
+vect[1]
+vect[2]
+vect[c(1, 3)]
+```
+
+We can also use the indexing to assign new values into the vector or changing
+existing ones:
+
+```{r}
+vect[4] <- "woooords"
+vect
+```
+
+```{r}
+vect[2] <- "woooords"
+vect
+```
+
+To understand the structure of a vectore, you can use `str()`.
+
+```{r}
+str(vect)
+```
+
+These vectors are homogeneous: they must contain the exact same kind of data.
+If you try to put the wrong kind of data together, its type will be transformed
+to a common one, if possible, of the operation fails, if no conversion is
+possible.
+
+```{r}
+vect[c(5, 6)] <- 10
+str(vect) # the numbers get transformed into characters
+```
+
+### explore the structure of the following vectors:
+
+Use `str()` to study the structure of the following vectors.
+Try also the functions:
+
+- `length()`
+- `mode()`
+- `class()`
+- `is.numeric()`
+- `is.logical()`
+- `is.character()`
+
+```{r}
+normdistr <- rnorm(10)
+uptoten <- 1:10
+poetry <- LETTERS[1:10]
+isit <- normdistr > 0
+```
+
+Now, discover tab completion if you didn't already:
+start typing `is.` in the next cell and hit the tab key.
+R will show you all the available commands starting with `is.`.
+Try them out or read their help page.
+
+Also `tidyverse` offers some is functions.
+You can discover and try them by typing `is_` and tab key.
+In particular, a family of functions starting with `is_scalar_` offer yous the
+possibility to check whether something is a, say, character and have length 1.
+
+```{r}
+is_scalar_character("asdba")
+is_scalar_character(c("a", "b", "c"))
+```
+
+Vectors elements can be named (all, none or some of them).
+
+```{r}
+vect_names <- c(
+  a = "my", b = "cool",
+  "vect", d = "with",
+  e = "important", letters = "words"
+)
+vect_names %>% print()
+```
+
+## Indexing
+
+You can index within vectors in many different ways:
+
+1. positive integers: picking by position from start
+2. negative integers: dropping by position from start
+3. logical (true/false) indexes
+4. names
+
+```{r}
+vect <- c("my", "cool", "vect", "with", "important", "words")
+vect[c(1, 2, 4)]
+vect[c(-3, -5, -6)]
+```
+
+If you use logical indexes, remember that they get recycled to cover the full
+length of the vector you are indexing from.
+So the two following commands produce the same exact output.
+
+```{r}
+vect[c(TRUE, FALSE)]
+vect[c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE)]
+vect_names[c("a", "letters")]
+```
+
+**try yourself** some indexing into the vectors
+
+### Limits of Vectors
+
+Vectors in R has some limitations (issues? quirkness? you name it), given by
+the design of R itself.
+
+The main one, is that when we concatenate things with `c()`, the _type_ of the
+result is not always easy to predict.
+In fancy pant words, `c()` is not a type stable function.
+Consider for example two factors and their concatenation:
+
+```{r}
+afactor <- factor("a")
+bfactor <- factor("b")
+abfactor <- c(afactor, bfactor)
+```
+
+Before trying to run the following cell, try to guess:
+what sort of object do you expect `abfactor` to be?
+
+```{r}
+abfactor %>% typeof()
+abfactor
+```
+
+The package `vctrs` provides functions to handle this situation more robustly.
+
+## Lists
+
+Where atomic vectors must contain exactly the same kind of stuff, lists are
+happy to host whatever.
+Even dataframe or other lists, we build them using the function `list()`.
+
+```{r}
+messy_list <- list(
+  "don't", 34, "eat",
+  TRUE, 1L, "the fruit",
+  data_frame(x = 1, y = 2),
+  list(1, "ciao", list(2, "hello", "there"))
+)
+messy_list
+```
+
+Use `str()`, `length()`, `mode()`, and `class()` to explore the list.
+
+List elements can have names, all of the elements or just some of them.
+
+```{r}
+messy_list_named <- list(
+  do = "don't", number = 34, "eat",
+  TRUE, 1L, "the fruit",
+  data = data_frame(x = 1, y = 2),
+  listi = list(1, "ciao", list(2, "hello", "there"))
+)
+messy_list_named %>% print()
+```
+
+If you remember, we saw that a data frame is a list:
+
+```{r}
+data_frame(x = 1, y = "ciao") %>% typeof()
+```
+
+You can index in a list in the same way we did with atomic vectors
+(remind, list are vectors even if we don't call them vectors).
+Moreover, we now introduce a package call `purrr` which makes working with
+lists much more convenient.
+
+There is a similarity that runs deep between vectors and lists.
+You can think about lists as vectors which elements are of type "whatever"
+(instead of any specific type).
+Accordingly, we can initialize them using `vector()` as follows:
+
+```{r}
+listor <- vector("list", 3)
+```
+
+and ask ourselves, is that a list or a vector?
+
+```{r}
+is.list(listor)
+is.vector(listor)
+```
+
+### Lists in the wild
+
+A common place where we can find things that, at least superficially, looks
+like lists (and sometimes very \[ very {very (nested lists)}\] ) is the web!
+Two common formats for data available through the web are "json" and "xml".
+R offer a convenient way of handling that type of data using
+
+1. [`jsonlite`](https://cran.r-project.org/web/packages/jsonlite/vignettes/json-aaquickstart.html)
+   for the JSON data 
+2. [`xml2`](https://xml2.r-lib.org/index.html) for the XML data
+
+## Working with lists (or nested objects)
+
+The tool of the trade is the family of `map` functions
+(that is `map()` and a number of `map_{something}()` where instead of
+{something} you'll have to specify the typo of data you expect to have as
+output).
+Type `map` in and then the tab key to see which other function are related.
+Let's see how it works on an example from Jenny Brian's `repurrrsive` package.
+
+Tip: keep a copy of this cheatsheet nearby you, as it is easy to get lost in
+[`purrr`](https://github.com/rstudio/cheatsheets/blob/master/purrr.pdf).
+
+```{r}
+library(purrr)
+library(repurrrsive) ## <- this contains example lists
+```
+
+```{r}
+wesanderson # this contains information about the color palette in Wes Anderson movies
+```
+
+If we want to extract the first element from all the elements in `wesanderson`
+we can not simply do:
+
+```{r}
+wesanderson[1]
+```
+
+Or:
+
+```{r}
+wesanderson[[1]]
+```
+
+Because that will give the first element of `wesanderson`.
+Not the same thing.
+Something like
+
+```{r}
+wesanderson[[1]][1]
+```
+
+would work for the first movie, but what about the others?
+Here comes `map()`
+
+```{r}
+wesanderson %>% map(1)
+```
+
+Much better!
+But `map()` is way more powerful than that!
+If we simply use integers (or names) it will extract elements, but if we pass
+**functions** map will apply that function to each element of the list.
+Let's see:
+
+```{r}
+wesanderson %>%
+  purrr::map(length) # apply the function length to all elements in wesanderson
+```
+
+The `map` comes in many flavors: `map_chr()`, `map_dbl()`, `map_df()`, ...
+What changes is the **expected outcome** of the function being mapped or the
+elements being extracted.
+If they are going to be all of the same type, the mapping takes advantage of
+that and is much faster.
+Also, if we have reason to expect all the outcomes to be of the same kind, we
+can use it to detect possible errors:
+if one outcome is not as desidered the map tells as there was an error.
+
+**try out the various versions of map_ on the wesanderson list**
+
+### Your turn
+
+Work on the list `got_chars` which contains information about Game of Thrones
+characters (from [here](https://www.anapioficeandfire.com)).
+
+```{r}
+got_chars %>% glimpse()
+```
+
+Extract the `name` of each character:
+
+## Challenge
+
+Now, in 1 piping flow, create a new dataframe containing `name` and
+`allegiances` of each character.
+You will need to use the `data_frame()` function, a couple of `map_...()`
+functions, and you will need to understand a little bit more about how to use
+the `%>%` operator
+(especially curly brackets and the dot, a good place where to do it is
+[here](https://magrittr.tidyverse.org/)).
+
+### More fancy operations
+
+The `map_...()` family of functions come with also a more agile notation for
+specifying the mapped function _on the fly_.
+This are called _anonymous functions_.
+In `purrr` this functions are defined starting with a tilde, `~`,
+and they have one implicit argument: `.x`.
+Consider the following list:
+
+```{r}
+gap_split[1:4] # I'm printing out only the first 4 elements
+```
+
+It is a list containing dataframes.
+If we want to get back from that list a dataframe with only the information
+about the year 1952, we can use the anonymous function notation and the usual
+piping flow of `tidyverse`.
+To get that information from one of the elements in the list we would write
+something like:
+
+```{r}
+gap_split[["Austria"]] %>%
+  filter(year == 1952)
+```
+
+Now, if we want to apply that to every element in the list, we use the `~` and
+`.x` notation.
+
+As the `map` goes through the list, `.x` will become one of the elements at
+each time.
+
+```{r}
+gap_split %>%
+  map_df(~ .x %>% filter(year == 1952))
+```
+
+### Readings:
+
+1. Work through [iteration](https://r4ds.had.co.nz/iteration.html) and do the
+exercises there.
+
+## Strings, Dates, and all that Jazz
+
+R (as most other programming languages) have dedicated classes for many
+variable types.
+Like, many of them.
+And a full ecosystem of packages that help you operate on those type on a
+higher level of abstraction.
+Two that are particularly common are strings
+(from letters to words, from tweets to entire books can be coded as strings)
+and data-times.
+Many different packages can handle those, but I'd like to introduce you with
+two in particular:
+
+1. `stringr` for strings (https://stringr.tidyverse.org/)
+2. `lubridate` for dates (https://lubridate.tidyverse.org/)
+
+Hadley's "R for data science" offers a great introduction to both:
+
+1. for strings, study [here](http://r4ds.had.co.nz/strings.html)
+2. for dates, study [here](https://r4ds.had.co.nz/dates-and-times.html)
+
+If you have time, it's a very good idea to work through the exercises.
+
+## Relational Data Exercises
+
+1. What does it mean for a flight to have a missing tailnum?
+   What do the tail numbers that don’t have a matching record in planes have in
+   common?
+   (Hint: one variable explains ~90% of the problems.)
+   Flights that have a missing tailnum all have missing values of arr_time...
+
+2. Filter flights to only show flights with planes that have flown at least 100
+   flights.
+   
+3. Find the 24 hours (over the course of the whole year) that have the worst
+   delays.
+   Cross-reference it with the weather data.
+   Can you see any patterns?
+
+4. What does `anti_join(flights, airports, by = c("dest" = "faa"))` tell you?
+   What does `anti_join(airports, flights, by = c("faa" = "dest"))` tell you?
+   
+   ```{r, eval=FALSE}
+   library(nycflights13)
+   ```
+   
+5. Economy vs Common Cars.
+   Combine `fueleconomy::vehicles` and `fueleconomy::common` to find only the
+   records for the most common models.
+   
+   ```{r, eval = FALSE}
+   install.packages("fueleconomy")
+   fueleconomy::vehicles%>%head()
+   fueleconomy::common%>%head()
+   fueleconomy::vehicles %>%
+     semi_join(fueleconomy::common, by = c("make", "model")) %>%
+     head()
+  
+   fueleconomy::vehicles %>%
+     distinct(model, make) %>%
+     group_by(model) %>%
+     filter(n() > 1) %>%
+     arrange(model)
+     
+   fueleconomy::common %>%
+     distinct(model, make) %>%
+     group_by(model) %>%
+     filter(n() > 1) %>%
+     arrange(model)
+   ```
