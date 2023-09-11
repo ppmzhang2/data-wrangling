@@ -1,0 +1,479 @@
+---
+title: "Lab 7. Web"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    theme: cayman
+    highlight: github
+    df_print: paged
+date: "2023-09-11"
+editor_options:
+  markdown:
+    wrap: 79
+---
+
+```{r knitr, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+import::from(magrittr, "%>%", "%$%", .into = "operators")
+```
+
+This is going to be a long lab. You will probably start now and finish at home. The **highly suggested** browser (or, at least, the one that I'll be using) is [Firefox](https://www.mozilla.org/en-US/firefox/developer/), the developer edition (for the console mode).
+
+The goal is to build a little collection of songs from our own preferred artist. Let's say, it's _Beastwars_ (they are great!).
+First you will work together through a full example, then I will ask you to do something more!
+
+The lab is organised like this:
+
+1.  The Scraping
+2.  The APIs
+
+Part 1. regards web as an unwilling source of data (the information is out there, but it is not explicitly designed for you to harvest it);
+Part 2. is mostly the web as willing source of data.
+
+Part 1. is more guided, in Part 2. you'll need to navigate autonomously.
+
+The lab is long, so you may want to alternate between the Julia and the R part a little bit in order to get started on both during the lab time.
+
+A little kicker for the day:
+
+```{r, eval=FALSE}
+IRdisplay::display_html('<iframe width="560" height="315" src="https://www.youtube.com/embed/M-twENDrwkk" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>')
+```
+
+We are going to work in the usual tidyverse framework.
+
+```{r}
+library(tidyverse)
+```
+
+We also introduce a bunch of additional packages that we will start to use more.
+
+```{r}
+# install.packages("magrittr")
+# install.packages("purrr")
+# install.packages("glue")
+# install.packages("stringr")
+library(magrittr) # better handling of pipes
+library(purrr) # to work with lists and map functions
+library(glue) # to paste strings
+library(stringr) # to hand strings
+```
+
+As well as some web scraping specific libraries: [rvest](https://github.com/hadley/rvest#rvest) and [polite](https://github.com/dmi3kno/polite#polite-). Spend some minutes reading through the README files in their website.
+
+
+```{r}
+# install.packages("rvest")
+# install.packages("polite")
+# install.packages("xml2")
+library(rvest) # rvest makes scraping easier
+library(polite) # polite is the "polite" version of rvest
+library(xml2) # makes it easier to work with HTML and XML from R
+```
+
+## The lyrics
+
+We are going to extract the lyrics from here: https://www.musixmatch.com/ . Chose it because it's rather consistent, and it's from Bologna, Italy (yeah!).
+
+The webiste offers the first 15 lyrics up front. That will do for the moment (and fixing that is not that easy). Let's take a look [here](https://www.musixmatch.com/artist/Beastwars#).
+
+The webpage you see is **not** the webpage the browser reads: it is the "parsing" of the original page. If you want to see the original page you can (in Firefox) right click and select "View Page Source". It's a mess. It's a lot of mess. But if you scroll enough you may find that there are information about "track_id", "track_name", ... It is stored under the label "attributes".
+
+## Titles
+
+First thing first, we would like to get a list of those track titles, so then we'll go and scrape them. Let's see how.
+
+```{r}
+url_titles <- "https://www.musixmatch.com/artist/Tool" # this is the base url from where the scraping starts
+
+page_title <- read_html(url_titles)
+```
+
+`read_html()` reads and parses the webpage into R. What kind of object have we there?
+
+```{r}
+page_title %>% typeof()
+page_title %>% glimpse()
+```
+
+Mmm, a list: this is how R sees the information in the page. Now it's a good moment to read through this quick introduction to R lists and vectors written by Jenny Brian: https://jennybc.github.io/purrr-tutorial/bk00_vectors-and-lists.html
+
+```{r}
+page_title
+```
+
+OK. It's a document. And in particular an XML document. That's sort of html.
+We need to parse the xml in a better way than just diving into the text.
+The library `xml2` is there excatly for parsing xml into something more humane.
+Let's see a bit more of that page: careful, long output coming!
+
+```{r}
+page_title %>% html_structure()
+```
+
+What is that? How will we ever find what we need inside there?
+![](https://media.giphy.com/media/ZkEXisGbMawMg/giphy.gif)
+
+To the browser!
+Press control+shift+i, you will fire up the "inspector mode" (if you are in Firefox).  Press control+shift+c if you are using Chrome.
+Now press on the button on the left of "Inspector" (it's this button ![this button](https://i.imgur.com/g00sN2e.png)).
+Then move your mouse over the title of a song. As you move it around you'll see that different part of the page get highlighted, and differnt part of the source code too! The highlighted source code of the web page is the code responsible for the object your pointing at.
+
+Let's look more carefully at the text source. In particolar, the titles are inside a
+
+```html
+<span>Schism</span>
+```
+block. And that block is inside a larger block:
+
+```html
+<a class="title" href="/lyrics/Tool/Schism">
+    <span>Schism</span></a>`
+```
+and, surely enough, even that block is within a larger block and so on untile the largest block of all: the full page.
+
+To get to the title we can use that "class" tag: they are called _css selectors_, and we will use them as handles to navigate into the extremely complex list that we get from a web page.
+
+Sometimes, we can be lucky. For example, the css selector for the titles are in the class "title". Let's see.
+
+```{r}
+page_title %>%
+  html_nodes(".title") # write .title, with the dot, because we want all results with that tag. Try removing it and see what happens.
+```
+
+That's still quite a mess: we have too much stuff, such as some links (called "href") and more text than we need. Let's clean it up with `html_text()`
+
+```{r}
+page_title %>%
+  html_nodes(".title") %>%
+  html_text()
+```
+
+It looks much better! Now we have 15 song titles. Soon we will have the lyrics!
+
+```{r}
+SLS_df <- tibble(Band = "Tool", Title = page_title %>%
+  html_nodes(".title") %>%
+  html_text())
+# build the Title variable using the code we used above
+SLS_df
+```
+
+We want to recover the links. Look again at what we get when we select the `.title` you may see that the _actual_ link is there, coded as `href`. Can we extract that? Yes we can!
+
+```{r}
+page_title %>%
+  html_nodes(".title") %>%
+  html_attrs() %>%
+  glimpse()
+```
+
+In particular, we want the element called `href`. Hey, we can get that with (one of) the `map()` function from `purrr`!
+
+```{r}
+page_title %>%
+  html_nodes(".title") %>%
+  html_attrs() %>%
+  map_chr("href") # when we specify map_chr we are telling R that we expect the output to be of character type
+                  # if it's not, R will complain
+```
+
+`purrr` is an extremely powerful library, and we will read and use it more in the next lectures. If in your R experience you have used `apply()` or similar functions (any of the {slvmt}`apply()` or the `XYply()` from `plyr`) read [this](https://jennybc.github.io/purrr-tutorial/bk01_base-functions.html#why_not_base).
+
+If you have no idea what I just spoke about, don't worry.
+
+The go to resource to learn about `purrr` and maps is Hadley's [iteration](http://r4ds.had.co.nz/iteration.html) chapter in his R 4 Data Science book. Read especially section 21.5 to 21.8. Another great resource is this tutorial by Rebecca Barter: http://www.rebeccabarter.com/blog/2019-08-19_purrr/
+
+We are going to talk more about `purrr` so it's a good investment to read more.
+
+Yet, we could have let `rvest` do the job for us:
+
+```{r}
+SLS_df %<>% # the %<>% is from magrittr, it corresponds to
+# SLS_df <- SLS_df %>%
+  mutate(Link = page_title %>%
+  html_nodes(".title") %>%
+  html_attr("href"))
+
+# page_title %>%
+#    html_nodes(".title") %>%
+#    html_attr("href")
+
+SLS_df
+```
+
+Cool, we don't gain much in terms of line of code, but it will be usefull later!
+
+## PURRR
+
+Cool, now we want to put grab all lyrics. Let's start with one at a time. What is the url we want?
+
+```{r}
+url_song <- glue("https://www.musixmatch.com{SLS_df$Link[1]}")
+
+url_song
+```
+
+Hey, ps, `glue()` is basically a much better version of `paste()`. Take a look [here](https://glue.tidyverse.org) if you are curious about it.
+
+And let's grab the lyrics for that song.
+Open that page in you browser, control+shift+i and poit to the lyrics.
+The content is marked by a css selector called "p.mxm-lyrics__content". That stands for "p", an object of class paragraph, plus "mxm-lyrics__content", the specific class for the lyrics.
+
+```{r}
+url_song %>%
+  read_html() %>%
+  html_nodes(".mxm-lyrics__content") %>%
+  html_text()
+```
+
+Ach, notice that it comes in different blocks: one for each section of text (if you look the original page in your browser you'll see the lyrics is split by the advertisment). Well, we can just `glue_collapse()` them together with `glue`. As we are doing this, let's turn that flow into a function:
+
+```{r}
+get_lyrics <- function(link){
+
+  lyrics_chunks <- glue("https://www.musixmatch.com{link}#") %>%
+   read_html() %>%
+   html_nodes(".mxm-lyrics__content")
+
+  # we do a sanity check to see that there's something inside the lyrics!
+  stopifnot(length(lyrics_chunks) > 0)
+
+  lyrics <- lyrics_chunks %>%
+   html_text() %>%
+   glue_collapse(sep =  "\n")
+
+  return(lyrics)
+}
+```
+
+Let's test it!
+
+```{r}
+SLS_df$Link[1] %>%
+  get_lyrics() %>%
+  print()
+```
+
+Now we can use purrr to map that function over our dataframe! Let's do that only for the top 4 tracks in our list.
+
+```{r}
+SLS_df_top <- SLS_df %>%
+  slice(1:2) %>%
+  mutate(Lyrics = map_chr(Link, get_lyrics))
+SLS_df_top
+```
+
+Ok, here we were quite lucky, as all the links were right and all the first 4 songs had some lyrics. But that's not always the case. We can see that if we try to run the previous code on the full dataframe.
+
+```{r, eval=FALSE}
+#error
+SLS_df %>%
+  mutate(Lyrics = map_chr(Link, get_lyrics))
+```
+
+In general we may want to play safe. To be safe, we ca use a `possibly` "wrapper" (from`purrr`) so not to have to stop everything in case something bad happens.
+
+```{r}
+get_lyrics_safe <- purrr::possibly(.f = get_lyrics, # the function that we want to make safer
+                                   otherwise = NA_character_) # the value we get back if .f fails
+```
+
+The following line applies the "get_lyrics_safe" in the context of our "Beastwars example". In this case, we did not have any errors, but the function will make more sense for the challenge of using other band names.
+
+```{r}
+SLS_df %<>%
+  mutate(Lyrics = map_chr(Link, get_lyrics_safe))
+
+SLS_df
+```
+
+## The flow
+
+**Explore, try, test, automatize, test.**
+
+Scraping data from the web will require a lot of trial and error. In general, I like this flow: I explore the pages that I want to scrape, trying to identify patterns that I can exploit. Then I try, on a smaller subset, and I test if it worked. Then I automatize it, using `purrr` or something similar. And finally some more testing.
+
+### Exercise: Another Artist
+
+Let's do this for some other artist, like "Angel Haze". Notice that in this case we **must** use the attributes ("href") from the web page, as the name of the authors of the lyrics is not always the same (the `glue` approach would fail).
+
+### Challenge: pack it in a function
+
+We have been scraping using a the same flow at least two artists. Our motto is that if we do something twice, we turn it into a function. So... let's turn the flow into a function. You have all the bits already there in the previous cells, and here I give you a boilerplate that you will have to fill in. When you see `----` in the code, that means it's up to you to do the job!
+
+```{r, eval=FALSE}
+get_words <- function(band_name){
+
+  # remove white space from band name and substitute them with a dash
+  collapsed_name <- str_replace_all(band_name, " ", "-") # this line uses a function from stringr
+  # define url to get the title and links
+  url <- glue("https://www.musixmatch.com/artist/{collapsed_name}")
+
+  # read title page and extract the title chunks
+  list_of_titles <- url %>%
+                    ----- #  How do we extract the list of titles from the first page?
+
+  # and we build the dataframe
+  lyrics <- tibble(Band = band_name,
+                       # extract text title
+                       Title = list_of_titles %>% ---- # we want only the text of the title, not all the html overhead,
+                       # extract title link
+                       Link =  list_of_titles %>% ---- # and we need the link to the page
+                       # map to get lyrics
+                       Lyrics = ---- # here is where we do the main job, using get_lyrics_safe()
+                      )
+
+  return(lyrics)
+}
+```
+
+Once you a function that you think it's working, test it on a couple of artists and check whether it's working properly.
+
+```{r, eval=FALSE}
+ATCR_words <- "A Tribe Called Red" %>% get_words()
+AW_words <- "Alien Weaponry" %>% get_words()
+```
+
+## The words, the soul
+
+Now that we have a collection of lyrics, it would be a pity not doing anything with them ;-)
+
+So, we will do some quick and dirty sentiment analysis. The idea is to attribute to each word a score, expressing wether it's more negative and positive, and then to sum up all the word values in a song: the result will give us a first approximation to the song general mood. To do this, we are going to use Julia Silge's and David Robinson's great [_Tidytext_](https://github.com/juliasilge/tidytext) library and a _vocabulary_ of words for which we have the scores (there are different options, we are using "afinn").
+
+```{r}
+#install.packages("textdata") # a framework to download, parse, and store text datasets on the disk and load them when needed.
+#install.packages("tidytext")
+library(tidytext)
+library(textdata)
+```
+
+The positivity/negativity values for the words are in a dictionary called "afinn". Warning: you may need to run R from the terminal and execute the following lines of code.
+
+```{r, eval=FALSE}
+afinn <- get_sentiments("afinn")
+afinn %>% sample_n(5)
+```
+
+Now, a bit of data wrangling: we breaks the lyrics into words, remove the words that are considered not interesting (they are called "stop words"), stitch the dataframe to the scoress from afinn, and do the math for each song.
+
+This workthrough is loosely inspired by Max Humber's [post](https://www.r-bloggers.com/fantasy-hockey-with-rvest-and-purrr/). Another reference [here](https://www.tidytextmining.com/sentiment.html). Great things in these resources, errors are mine. Read those posts, there is a lot to learn!
+
+The stop words are words we consider not important for the analysis because they are too common. They are in a dictionary (a dataframe indeed) called `stop_words`. Whether or not to remove them when doing any analysis, is up to the researcher best judgement.
+
+```{r}
+stop_words %>% sample_n(10)
+```
+
+### Challenge, fill in the code below
+
+```{r, eval=FALSE}
+SLS_df %>%
+  unnest_tokens(word, Lyrics) %>% #split words
+# we use a _join function to remove dull words. Which function?
+  ----(stop_words, by = ---) %>% # which column will we use to do the join?
+# we use another _join function to stitch the scores from afinn to words in our lyrics.
+# Which function?
+  ----(afinn, by = ---) %>% # which column will we use to do the join?
+#and for each song we do the math
+  group_by(---) %>% # we group by... by what?
+  ----(Length = n(), # which functions allows you to reduce the all the rows in a dataframe into a single one?
+    Score = sum(value)/Length) %>%
+  arrange(-Score)
+```
+
+Once you have done it, try it on a couple of lyrics collections. Then, turn the flow into a reusable flow. Once again, I give you the boilerplate:
+
+```{r, eval=FALSE}
+get_soul <- . %>%
+  unnest_tokens(word, Lyrics) %>%
+  ----(stop_words, by = ---) %>%
+  ----(afinn, by = ---) %>%
+  group_by(---) %>%
+  ----(Length = n(),
+    Score = sum(value)/Length) %>%
+  arrange(-Score)
+```
+
+And try that on some artists:
+
+```{r, eval=FALSE}
+"Billie Holiday" %>% get_words() %>% get_soul()
+"Nina Simone" %>% get_words() %>% get_soul()
+```
+
+Try to assess your results: do they seem to make sense?
+
+## APIs
+
+In the previous lab we saw how you can use the WWW as a source of data, even when the information presented is not there for the purpose of data analysis (i.e., it is there for you as a browser to read it).
+
+Sometimes, though, you are lucky and the data source you're after will have an **API** set up so that you don't need to scrape it. An **API** is a detailed and rigorous set of rules that you must use in order to get something from a server.
+
+In particular, many APIs in the web gives you back if you write the _right_ url.
+
+Consider searching "something" on http://www.duckduckgo.com. If you take a look at the result page, you will see that the url is something like:
+https://duckduckgo.com/?q=something&t=h_&ia=about
+
+The part before the `?` is the _base url_, the human readable name of the _server_ that is giving you the data. what is after the `?` defines the various argument of the duckduckgo API. `q` probably stands for "query", and after the `=` is where you put the terms you are looking for; `&` separates various arguments; `t` and `ia` define other aspects of the behaviour of the search engine.
+
+You can pass more arguments, and change the behaviour of the server. For example, in duckduckgo we can appen a `format=xml` to get the data in an xml format (instead of the html format with all the fancy visualization stuff). We may do it because the xml format **is** intended for programmatic data extraction and we are trying to get that data. Try to browse to:
+
+https://duckduckgo.com/?q=something&t=h_&ia=about&format=xml
+
+Try a couple of other websites, you will notice that the `?argument=values` format is very common. Websites offering API for accessing their data often have a lot of information about how to do it.
+
+For example, duckduckgo's API is explained here: https://duckduckgo.com/api
+
+A great resources to learn about what are APIs is https://zapier.com/learn/apis/.
+
+### httr
+
+The tool of the trade for APIs interaction in R is the library `httr`. Get familiar with it reading the [introduction](http://httr.r-lib.org/articles/quickstart.html). If you are unfamiliar with how HTTP works (the common underlaying network protocol that rules the web) read also the two resources suggested at the start of the introduction. Or maybe ask your peer to explain you a bit.
+
+### API in the zoo
+
+The website [numbersapi](http://www.numbersapi.com) offers a funny example to try and use a RESTful API. (You can use *different* APIs, take a look at [programmableweb](http://programmableweb.com) for a selection of available ones, and I actually encourage you to choose a different example if you are already familiar with the concept.)
+
+Using some tool to deal with strings (I like `glue`, but you can do this stuff with the base `paste` if you are more comfy) write some examples of interaction with numbersapi (tl;dr, write some query string and feed it to `httr`'s `GET`: e.g., `GET("http://www.colourlovers.com/api/color/6B4106?format=xml")`).
+
+_kudos if you use an APIs that allows you to POST, PUT, DELETE, ... instead of just GETting._
+
+### API in the zoo but tamed
+
+Dealing with strings is not ideal: you need to tweak theme everytime you want to perform a different query, and that opens the door to errors. Also, our credo is that everytime we have to repeat some task, it's better to write a function for it.
+
+Thus, write wrapper functions to perform the queries you wrote in the previous exercise. Try and write both very specific, _atomic_, functions that do just one very specific thing, and some more general function that can do more than one thing combining the more atomic functions together.
+
+For example, if you are using the numbersapi, write both something like `get_integer_math()` that only allows you to query `[integer]/math` (e.g., Ramanujan's taxi plate [1729](http://numbersapi.com/1729/math)); and something like `get_number_type()` which allows for different types specifications (trivia, math, date, or year).
+
+_kudos if these functions check the inputs (e.g., for `get_integer_math`, the function checks wether the input is indeed an integer and returns an error otherwise) and handles the eventual errors risen by the APIs._
+
+### API authorized
+
+Not all APIs are free and completely open to everybody. Some of them require an autentification/authorization step: the server that is responding to your query wants to know who you are, because certain services are available only to some users.
+
+A common method of authentification is called `OAuth` or `OAuth2.0` (if you are very curious, see [here](https://en.wikipedia.org/wiki/OAuth). `httr` has functions to create and handle ouaths. See this [paragraph](http://httr.r-lib.org/articles/api-packages.html#authentication) or read more [here](https://support.rstudio.com/hc/en-us/articles/217952868-Generating-OAuth-tokens-for-a-server-using-httr).
+
+Register on https://developer.twitter.com/, obtain the _secrets_, register an app (it does not matter which website you provide) and write the code to connect to it (see [here](https://developer.twitter.com/) for more details).
+
+### API in the wild
+
+Sometimes you are fortunate enought that the information you are looking for is provided by a website through an API. This is a somewhat open ended exercise. The first one you encounter in this labs, but now you are grown up. We ask you to _pull_ data from an API of your choice, do some simple wrangling (and some super simple analysis if you really want) and visualize your result.
+
+The focus of the exercise is on the interaction with the API you chose, not so much the visualization. We would like to see that you did some complex query in a programmatic fashion (that is, not by hand-writing the query but using a function to do that for you).
+
+Some possible APIs you can use are (in order of what-Giulio-likes):
+
+* digitalnz [API](https://digitalnz.org/developers) get cultural, education and gov data from NZ. It contains many different API. Some of them require authentification and/or subscription (a good one is the DOC [campsites and huts](https://api.doc.govt.nz) api).
+* [Geonet](https://api.geonet.org.nz/) for geological hazard information
+* [Trademe](https://developer.trademe.co.nz/) very nice one, but not supereasy to get the autentification done (this [queries](https://developer.trademe.co.nz/api-reference/catalogue-methods/) do not require auth).
+* all of thise [references](https://www.programmableweb.com/category/reference/api) APIs are (probably, I did not check ALL of them) good examples.
+* [GDELT](https://blog.gdeltproject.org/gdelt-geo-2-0-api-debuts/) This is a rewarding, yet **tough**, API. Take a look at [leaflet](https://rstudio.github.io/leaflet/json.html) for an idea on how to use what you get back from GDELT. Also, Alex Bresler has started working on an [R wrapper](https://github.com/abresler/gdeltr2) that may get you inspired.
+* [car2go](https://github.com/car2go/openAPI) (requires [registration](https://github.com/car2go/openAPI/wiki/Access-protected-Functions-via-OAuth-1.0#registration-as-consumer))
+* [Quandl](https://www.quandl.com/docs/api)
+* [Lufthansa](https://developer.lufthansa.com/docs) most methods are open, so good one if you don't want to deal with authentification.
+
+##### Let's do the JSON dance
+
+Many website returns JSON files when you query them. Json is similar to the XML (of which HTML is an example) in that it is a **tree** (not tabular nor relational) data format. Roughly speaking, it is a list of lists of lists of ... `purrr` is very handy when you want to extract information from a JSON file. But do see also the `jsonlite` package, [intro here](https://cran.r-project.org/web/packages/jsonlite/vignettes/json-aaquickstart.html). If you are lost trying to wrangle the results you get from these APIs, consider working through Jenny Brian's [tutorial on purrr](https://jennybc.github.io/purrr-tutorial/ex26_ny-food-market-json.html). Additional material here: https://www.zevross.com/blog/2019/06/11/the-power-of-three-purrr-poseful-iteration-in-r-with-map-pmap-and-imap/

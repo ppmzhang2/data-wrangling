@@ -24,4 +24,7 @@ Imports:
     writexl,
     purrr,
     repurrrsive,
+    polite,
+    tidytext,
+    textdata,
     ggplot2
