@@ -1,0 +1,26 @@
+---
+title: "Data Wrangling Labs"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    theme: cayman
+    highlight: github
+    df_print: paged
+date: "2023-08-02"
+editor_options:
+  markdown:
+    wrap: 79
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+import::from(magrittr, "%>%", "%$%", .into = "operators")
+```
+
+## Table of Contents
+
+- [Lab 2: DataFrame](./lab_02.html)
+- [Lab 3: Aggregation](./lab_03.html)
+- [Lab 4: Comma](./lab_04.html)
+- [Lab 5: Class Theory](./lab_05.html)
+- [Lab 7: Web Crawling](./lab_07.html)

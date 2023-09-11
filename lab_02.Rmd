@@ -1,0 +1,98 @@
+---
+title: "Lab 2. DataFrame"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    theme: cayman
+    highlight: github
+    df_print: paged
+date: "2023-08-02"
+editor_options:
+  markdown:
+    wrap: 79
+---
+
+```{r knitr, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+import::from(magrittr, "%>%", "%$%", .into = "operators")
+```
+
+## Setup
+
+```{r setup, eval = FALSE}
+devtools::install_github("JoeyBernhardt/singer")
+```
+
+## R Markdown
+
+```{r}
+# library(tidyverse)
+library(singer)
+```
+
+## Including Plots
+
+We can obtain a quick overview of what dataset are now available via `singer`
+using the `data()` function.
+
+```{r}
+data(package = "singer")
+```
+
+```{r}
+data(singer_locations)
+```
+
+## Introduction
+
+```{r}
+singer_locations %>% nrow()
+```
+
+We can use `head()`, `tail()` or the beautiful `glimpse()` to peek at the
+dataset.
+
+```{r}
+singer_locations %>% head()
+```
+
+```{r}
+singer_locations %>% dplyr::glimpse()
+```
+
+## Selecting
+
+```{r}
+singer_locations %>%
+  dplyr::select(title) %>% # let's see only the title column
+  head() # and just a few rows
+```
+
+Moreover, `tidyverse` (specifically, `dplyr`) offers you helper functions to
+select some column, for example:
+
+```{r}
+singer_locations %>%
+  dplyr::select(dplyr::ends_with("id")) %>%
+  head()
+```
+
+And we can also decide which columns NOT to have:
+
+```{r}
+singer_locations %>%
+  dplyr::select(-dplyr::ends_with("id")) %>%
+  head()
+```
+
+## Plot, listen, 3D print
+
+```{r}
+singer_locations %>% skimr::skim()
+```
+
+```{r}
+singer_locations %>%
+  skimr::skim() %>%
+  knitr::kable()
+```
